@@ -1,0 +1,43 @@
+[gd_scene load_steps=7 format=3 uid="uid://cioa2leagovel"]
+
+[ext_resource type="Script" path="res://fighter.gd" id="1_vlhgo"]
+[ext_resource type="Script" path="res://input_reader.gd" id="2_jg5f3"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_w501r"]
+size = Vector2(130, 660)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_poonp"]
+size = Vector2(1160, 58)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_32xy4"]
+size = Vector2(78, 648)
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_yddot"]
+radius = 35.0
+height = 110.0
+
+[node name="Main" type="Node2D"]
+
+[node name="Stage" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Stage"]
+position = Vector2(55, 320)
+shape = SubResource("RectangleShape2D_w501r")
+
+[node name="CollisionShape2D2" type="CollisionShape2D" parent="Stage"]
+position = Vector2(570, 619)
+shape = SubResource("RectangleShape2D_poonp")
+
+[node name="CollisionShape2D3" type="CollisionShape2D" parent="Stage"]
+position = Vector2(1115, 317)
+shape = SubResource("RectangleShape2D_32xy4")
+
+[node name="Fighter" type="CharacterBody2D" parent="."]
+position = Vector2(326, 503)
+script = ExtResource("1_vlhgo")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Fighter"]
+shape = SubResource("CapsuleShape2D_yddot")
+
+[node name="InputRreader" type="Node" parent="."]
+script = ExtResource("2_jg5f3")
