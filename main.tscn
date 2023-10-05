@@ -36,8 +36,8 @@ shape = SubResource("RectangleShape2D_32xy4")
 position = Vector2(326, 503)
 script = ExtResource("1_vlhgo")
 
+[node name="InputRreader" type="Node" parent="Fighter"]
+script = ExtResource("2_jg5f3")
+
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Fighter"]
 shape = SubResource("CapsuleShape2D_yddot")
-
-[node name="InputRreader" type="Node" parent="."]
-script = ExtResource("2_jg5f3")
