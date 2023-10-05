@@ -28,43 +28,84 @@ const DIRECTION_MAPPING_CAPCOM:PackedByteArray = [
 ]
 
 const BUTTON_MAPPING:Dictionary = {
-	"light_punch": "a",
+	"light_punch":  "a",
 	"medium_punch": "b",
-	"heavy_punch": "c",
-	"light_kick": "d",
-	"medium_kick": "e",
-	"heavy_kick": "f"
+	"heavy_punch":  "c",
+	"light_kick":   "d",
+	"medium_kick":  "e",
+	"heavy_kick":   "f"
 }
 
 class Motion:
-	var _max_frames:int
+	var _name:String
 	var _regex:RegEx
-	func _init(max_frames:int, regex_string:String):
-		_max_frames = max_frames
+	func _init(name:String, regex_string:String):
+		_name = name
 		_regex = RegEx.new()
-		_regex.compile(InputReader._convert_custom_regex(regex_string))
-
-var motion_list:Dictionary = {
-	"DF":  Motion.new(30, "5 6+10 5+10 6"),
-	"DB":  Motion.new(30, "5 4+10 5+10 4"),
-	"QCF": Motion.new(30, "2 3+10 6+10 5*10"),
-	"QCB": Motion.new(30, "2 1+10 4+10 5*10"),
-	"DP":  Motion.new(30, "(6 5*5 2+10 3+10 [56]*10 |
-							6 3+10 6 [56]*9 )"),
-	"HCF": Motion.new(30, "4 1+10 2*10 3+10 6+10 5*10"),
-	"HCB": Motion.new(30, "6 3+10 2*10 1+10 4+10 5*10"),
-	"BCH": Motion.new(60, "[14]+30 [235sd]*10 6+10 5+10"),
-	"SF":  Motion.new(30, "(2+10 3+10 6+10 5*10)=2"),
-	"SB":  Motion.new(30, "(2+10 1+10 4+10 5*10)=2"),
-}
+		_regex.compile(regex_string)
+	func _is_motion(buffer:Array[String]) -> bool:
+		var joined_buffer = "".join(buffer.map(func(x:String): return x[0]))
+		if _regex.search(joined_buffer):
+			return true
+		else:
+			return false
 
 class Move:
-	var _motions:PackedStringArray
+	var _name:String
+	var _motions:Array[String]
 	var _button_regex:RegEx
-	func _init(motions:PackedStringArray, button_regex:String):
+	func _init(name:String, motions:Array[String], button_regex:String):
+		_name = name
 		_motions = motions
 		_button_regex = RegEx.new()
-		_button_regex.compile(InputReader._convert_custom_regex(button_regex))
+		# parse custom regex expressions
+		button_regex = RegEx.create_from_string("m").sub(button_regex,"[0-9]",true)
+		button_regex = RegEx.create_from_string("p").sub(button_regex,"[abc]",true)
+		button_regex = RegEx.create_from_string("k").sub(button_regex,"[def]",true)
+		button_regex = RegEx.create_from_string("x").sub(button_regex,"[abcdef]",true)
+		button_regex = RegEx.create_from_string("A").sub(button_regex,"(ab?c?)",true)
+		button_regex = RegEx.create_from_string("B").sub(button_regex,"(a?bc?)",true)
+		button_regex = RegEx.create_from_string("C").sub(button_regex,"(a?b?c)",true)
+		button_regex = RegEx.create_from_string("D").sub(button_regex,"(de?f?)",true)
+		button_regex = RegEx.create_from_string("E").sub(button_regex,"(d?ef?)",true)
+		button_regex = RegEx.create_from_string("F").sub(button_regex,"(d?e?f)",true)
+		button_regex = RegEx.create_from_string("P").sub(button_regex,"(ab?c?|a?bc?|a?b?c)",true)
+		button_regex = RegEx.create_from_string("K").sub(button_regex,"(de?f?|d?ef?|d?e?f)",true)
+		_button_regex.compile(button_regex)
+	func _is_move(motions:Array[String], buffer:Array[String]) -> bool:
+		var joined_buffer = "".join(buffer.slice(-10))
+		var motion_found:bool = false
+		if _motions.size() == 0:
+			motion_found = true
+		else:
+			for motion in motions:
+				if motion in _motions:
+					motion_found = true
+		if motion_found==true and _button_regex.search(joined_buffer):
+			return true
+		else:
+			return false
+
+var motion_list:Array[Motion] = [
+	Motion.new("WF",  "6$"),
+	Motion.new("WB",  "4$"),
+	Motion.new("CR",  "[23]$"),
+	Motion.new("CRB", "1$"),
+	Motion.new("JU",  "8$"),
+	Motion.new("JUF", "9$"),
+	Motion.new("JUB", "7$"),
+	Motion.new("DF",  "(?=5+6+5+6$).{1,20}"),
+	Motion.new("DB",  "(?=5+4+5+4$).{1,20}"),
+	Motion.new("QCF", "(?=2+3+6+5*$).{1,20}"),
+	Motion.new("QCB", "(?=2+1+4+5*$).{1,20}"),
+	Motion.new("DP",  "(?=6+5*2+3+6*5*$|6+3+6+5*$|3+5+3+6*5*$).{1,20}"),
+	Motion.new("HCF", "(?=4+1+2*3+6+5*$).{1,20}"),
+	Motion.new("HCB", "(?=6+3+2*1+4+5*$).{1,20}"),
+	Motion.new("FCF", "(?=6+9+8*7+4*1+2*3+6*5*$).{1,30}"),
+	Motion.new("BCH", "(?=4{30,}1*[25]*3*6+5*$).{1,40}"),
+	Motion.new("SF",  "(?=2+3+6+5*2+3+6+5*$).{1,40}"),
+	Motion.new("SB",  "(?=2+1+4+5*2+1+4+5*$).{1,40}"),
+]
 
 @export var button_prefix:String = "p1_"
 var input_buffer:Array[String] = []
@@ -82,38 +123,11 @@ func update_input_buffer():
 	if input_buffer.size() > BUFFER_MAX_SIZE:
 		input_buffer.pop_front()
 
-func get_moves(move_list:Dictionary) -> Array[String]:		
+func get_moves(move_list:Array[Move]) -> Array[String]:
 	if (input_buffer.size() < 2 or input_buffer[-1] != input_buffer[-2]) and input_buffer[-1] != "":
 		print(input_buffer[-1])
-	
 	var detected_motions = _detect_motions(motion_list, input_buffer)
-#	if motions.size() > 0:
-#		print(motions)
-		
-	return _detect_moves(move_list, input_buffer, detected_motions)
-
-static func _convert_custom_regex(input:String) -> String:
-	var start:String
-	var end:String
-	start = ""
-	end = input
-	#keep applying replacement rules until nothing changes
-	while start != end:
-		start = end
-		# loop only executed on intialization so we don't really care about recreating regex
-		end = RegEx.create_from_string("([0-9m][abcdefpkx]{0,6})=(\\d+)").sub(end,"($1){$2}",true)
-		end = RegEx.create_from_string("(\\)|\\])=(\\d+)").sub(end,"$1{$2}",true)
-		end = RegEx.create_from_string("([0-9m][abcdefpkx]{0,6})\\+(\\d+)").sub(end,"($1){1,$2}",true)
-		end = RegEx.create_from_string("(\\)|\\])\\+(\\d+)").sub(end,"$1{1,$2}",true)
-		end = RegEx.create_from_string("([0-9m][abcdefpkx]{0,6})\\*(\\d+)").sub(end,"($1){0,$2}",true)
-		end = RegEx.create_from_string("(\\)|\\])\\*(\\d+)").sub(end,"$1{0,$2}",true)
-		end = RegEx.create_from_string("m").sub(end,"\\d",true)
-		end = RegEx.create_from_string("p").sub(end,"[abc]",true)
-		end = RegEx.create_from_string("k").sub(end,"[def]",true)
-		end = RegEx.create_from_string("x").sub(end,"[abcdef]",true)
-	end = RegEx.create_from_string("\\s").sub(end,"",true)
-	end+="$"
-	return end
+	return _detect_moves(move_list, detected_motions, input_buffer)
 
 		
 func _map_input_to_string() -> String:
@@ -143,27 +157,16 @@ func _map_input_to_string() -> String:
 	
 	return input
 
-func _detect_motions(motion_list:Dictionary, buffer:Array[String]) -> Array[String]:
+func _detect_motions(motion_list:Array[Motion], buffer:Array[String]) -> Array[String]:
 	var detected_motions:Array[String] = []
-	for motion_name in motion_list.keys():
-		var motion:Motion = motion_list[motion_name]
-		var joined_buffer = "".join(buffer.slice(-motion._max_frames).map(func(x): return RegEx.create_from_string("[abcdef]").sub(x,"",true)))
-		if motion._regex.search(joined_buffer):
-			detected_motions.push_back(motion_name)
+	for motion in motion_list:
+		if motion._is_motion(buffer):
+			detected_motions.push_back(motion._name)
 	return detected_motions
 
-func _detect_moves(move_list:Dictionary, buffer:Array[String], motions:Array[String]) -> Array[String]:
+func _detect_moves(move_list:Array[Move], motions:Array[String], buffer:Array[String]) -> Array[String]:
 	var detected_moves:Array[String] = []
-	for move_name in move_list.keys():
-		var move:Move = move_list[move_name]
-		var joined_buffer = "".join(buffer.slice(-10))
-		var motion_found:bool = false
-		if move._motions.size() == 0:
-			motion_found = true
-		else:
-			for motion in motions:
-				if motion in move._motions:
-					motion_found = true
-		if motion_found==true and move._button_regex.search(joined_buffer):
-			detected_moves.push_back(move_name)
+	for move in move_list:
+		if move._is_move(motions, buffer):
+			detected_moves.push_back(move._name)
 	return detected_moves
